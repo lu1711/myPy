@@ -1,52 +1,33 @@
-from flask import Flask, render_template, request, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, render_template
+from models import db
+from auth import auth_bp
+from vehicles import vehicles_bp
+from reservations import reservations_bp
 
+def create_app():
+    app = Flask(__name__)
 
-app = Flask(__name__)
+    # Configurações básicas
+    app.config["SECRET_KEY"] = "uma_chave_segura_qualquer"
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tarefas.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    # Inicializar a base de dados
+    db.init_app(app)
 
-db = SQLAlchemy(app)
+    # Registar blueprints
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(vehicles_bp)
+    app.register_blueprint(reservations_bp)
 
-class Tarefa(db.Model):
-    __tablename__ = "tarefas"
-    id = db.Column(db.Integer, primary_key=True)
-    conteudo = db.Column(db.String(200))
-    feita = db.Column(db.Boolean)
+    # Página inicial → pesquisa de veículos
+    @app.route("/")
+    def index():
+        return render_template("search.html")
 
-with app.app_context():
-    db.create_all()
-    import os
-    print("Base de dados criada em:", os.path.abspath("tarefas.db"))
+    return app
 
-
-@app.route('/')
-def home():
-    todas_as_tarefas = Tarefa.query.all()
-    return render_template("index.html", lista_de_tarefas=todas_as_tarefas)
-
-
-@app.route('/criar-tarefa', methods=['POST'])
-def criar():
-    tarefa = Tarefa(conteudo=request.form['conteudo_tarefa'], feita=False)
-    db.session.add(tarefa)
-    db.session.commit()
-    return redirect(url_for('home'))
-
-@app.route('/eliminar-tarefa/<id>')
-def eliminar(id):
-    tarefa = Tarefa.query.filter_by(id=int(id)).delete()
-    db.session.commit()
-    return redirect(url_for('home'))
-
-@app.route('/tarefa-feita/<id>')
-def feita(id):
-    tarefa = Tarefa.query.filter_by(id=int(id)).first()
-    tarefa.feita = not tarefa.feita
-    db.session.commit()
-    return redirect(url_for('home'))
-
-if __name__ == '__main__':
+# Só corre o servidor se este ficheiro for executado diretamente
+if __name__ == "__main__":
+    app = create_app()
     app.run(debug=True)
-
